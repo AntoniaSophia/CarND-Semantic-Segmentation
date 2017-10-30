@@ -110,7 +110,7 @@ def optimize(nn_last_layer, correct_label, learning_rate, num_classes):
     # TODO: Implement function
 
     # Reshape predictions and labels
-    logits = tf.reshape(nn_last_layer, (-1, num_classes))
+    logits = tf.reshape(nn_last_layer, (-1, num_classes), name="adam_logit")
     correct_labels = tf.reshape(correct_label, (-1,num_classes))
 
     #Define loss function
@@ -144,7 +144,6 @@ def train_nn(sess, epochs, batch_size, get_batches_fn, train_op, cross_entropy_l
     :param learning_rate: TF Placeholder for learning rate
     """
     # TODO: Implement function
-    sess.run(tf.global_variables_initializer())
     iteration = 0
     for epoch in range(epochs):
         for image, label in get_batches_fn(batch_size):
@@ -173,7 +172,16 @@ def run():
     # You'll need a GPU with at least 10 teraFLOPS to train on.
     #  https://www.cityscapes-dataset.com/
 
-    with tf.Session() as sess:
+    # Create a TensorFlow configuration object. This will be 
+    # passed as an argument to the session.
+    config = tf.ConfigProto()
+    # JIT level, this can be set to ON_1 or ON_2 
+    jit_level = tf.OptimizerOptions.ON_2
+    config.graph_options.optimizer_options.global_jit_level = jit_level
+    config.gpu_options.allow_growth = True
+
+    #with tf.Session(config=config) as sess:
+    with tf.Session(config=config, graph=tf.Graph()) as sess:
         # Path to vgg model
         vgg_path = os.path.join(data_dir, 'vgg')
         # Create function to get batches
@@ -185,22 +193,39 @@ def run():
 
         # TODO: Build NN using load_vgg, layers, and optimize function
         epochs = 50
-        batch_size = 5
+        batch_size = 3
         input_image, keep_prob, vgg_layer3_out, vgg_layer4_out, vgg_layer7_out = load_vgg(sess, vgg_path)
         output_layer = layers(vgg_layer3_out, vgg_layer4_out, vgg_layer7_out, num_classes)
 
         correct_label = tf.placeholder(tf.int32, shape=[None, None, None, num_classes])
         learning_rate = tf.placeholder(tf.float32, name='learning_rate')
         logits, train_op, cross_entropy_loss = optimize(output_layer, correct_label, learning_rate, num_classes)
+        sess.run(tf.global_variables_initializer())
+        sess.run(tf.local_variables_initializer())
 
 
         # TODO: Train NN using the train_nn function
-        train_nn(sess, epochs, batch_size, get_batches_fn, train_op, cross_entropy_loss, 
-                 input_image,correct_label, keep_prob, learning_rate)
+        #train_nn(sess, epochs, batch_size, get_batches_fn, train_op, cross_entropy_loss, 
+        #         input_image,correct_label, keep_prob, learning_rate)
 
         # TODO: Save inference data using helper.save_inference_samples
-        helper.save_inference_samples(runs_dir, data_dir, sess, image_shape, logits, keep_prob, input_image)
+        #helper.save_inference_samples(runs_dir, data_dir, sess, image_shape, logits, keep_prob, input_image)
+    
+        # save the (trained) model 
+        sess.run(tf.global_variables_initializer())
+
+        # We use a built-in TF helper to export variables to constants
+        output_node_names = 'adam_logit'
+        output_graph_def = tf.graph_util.convert_variables_to_constants(
+            sess, # The session is used to retrieve the weights
+            tf.get_default_graph().as_graph_def(), # The graph_def is used to retrieve the nodes 
+            output_node_names.split(",") # The output node names are used to select the usefull nodes
+        ) 
+        saver = tf.train.Saver()
         saver.save(sess, './runs/semantic_segmentation_model.ckpt')
+        tf.train.write_graph(tf.get_default_graph().as_graph_def(), '', './runs/base_graph.pb', False)
+        tf.train.write_graph(output_graph_def, '', './runs/frozen_graph.pb', False)
+        print("%d ops in the final graph." % len(output_graph_def.node))
 
 
         # OPTIONAL: Apply the trained model to a video
