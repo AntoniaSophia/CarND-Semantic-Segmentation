@@ -70,65 +70,31 @@ def layers(vgg_layer3_out, vgg_layer4_out, vgg_layer7_out, num_classes):
     :param num_classes: Number of classes to classify
     :return: The Tensor for the last layer of output
     """
-    # # TODO: Implement function
-    # # Take pretrained VGG as basic network
+    # TODO: Implement function
+    # Take pretrained VGG as basic network
     
 
-    # # 1x1 convolution of vgg layer7, layer4 and layer3
-    # layer7_conv1x1 = conv_1x1(vgg_layer7_out, num_classes)
-    # layer4_conv1x1 = conv_1x1(vgg_layer4_out, num_classes)
-    # layer3_conv1x1 = conv_1x1(vgg_layer3_out, num_classes)
+    # 1x1 convolution of vgg layer7, layer4 and layer3
+    layer7_conv1x1 = conv_1x1(vgg_layer7_out, num_classes)
+    layer4_conv1x1 = conv_1x1(vgg_layer4_out, num_classes)
+    layer3_conv1x1 = conv_1x1(vgg_layer3_out, num_classes)
 
-    # # upsample by 2 
-    # upsample_1 = upsample(layer7_conv1x1, num_classes,4,(2,2))
-    # # add skip connection to layer4         
-    # skip_1 = tf.add(upsample_1, layer4_conv1x1)
+    # upsample by 2 
+    upsample_1 = upsample(layer7_conv1x1, num_classes,4,(2,2))
+    # add skip connection to layer4         
+    skip_1 = tf.add(upsample_1, layer4_conv1x1)
 
-    # # upsample again by 2
-    # upsample_2 = upsample(skip_1, num_classes,4,(2,2))
-    # # add skip connection to layer4         
-    # skip_2 = tf.add(upsample_2, layer3_conv1x1)
-
-
-    # # upsample again by 8
-    # nn_last_layer = upsample(skip_2, num_classes,16,(8,8))
-
-    # return nn_last_layer
-
-    # 2: Implement layers function
-    conv7 = tf.layers.conv2d(vgg_layer7_out, num_classes, 1, strides=(1,1), padding='same', 
-                                kernel_initializer=tf.truncated_normal_initializer(stddev=0.01),
-                                kernel_regularizer=tf.contrib.layers.l2_regularizer(1e-3))
-
-    conv4 = tf.layers.conv2d(vgg_layer4_out, num_classes, 1, strides=(1,1), padding='same', 
-                                kernel_initializer=tf.truncated_normal_initializer(stddev=0.01),
-                                kernel_regularizer=tf.contrib.layers.l2_regularizer(1e-3))
-
-    conv3 = tf.layers.conv2d(vgg_layer3_out, num_classes, 1, strides=(1,1), padding='same', 
-                                kernel_initializer=tf.truncated_normal_initializer(stddev=0.01),
-                                kernel_regularizer=tf.contrib.layers.l2_regularizer(1e-3))
-
-    # upsample by 2
-    upsamp_32x = tf.layers.conv2d_transpose(conv7, num_classes, 4, strides=(2, 2), padding='same', 
-                                kernel_regularizer=tf.contrib.layers.l2_regularizer(1e-3))
+    # upsample again by 2
+    upsample_2 = upsample(skip_1, num_classes,4,(2,2))
+    # add skip connection to layer4         
+    skip_2 = tf.add(upsample_2, layer3_conv1x1)
 
 
-    # add skip connection and upsample by 2
-    skip_add_1 = tf.add(upsamp_32x, conv4)
-    upsamp_16x = tf.layers.conv2d_transpose(skip_add_1, num_classes, 4, strides=(2, 2), padding='same', 
-                                kernel_regularizer=tf.contrib.layers.l2_regularizer(1e-3))
+    # upsample again by 8
+    nn_last_layer = upsample(skip_2, num_classes,16,(8,8))
 
+    return nn_last_layer
 
-    # add skip connection and upsample by 8
-    skip_add_2 = tf.add(upsamp_16x, conv3)
-    output = tf.layers.conv2d_transpose(skip_add_2, num_classes, 32, strides=(8, 8), padding='same', 
-                                kernel_regularizer=tf.contrib.layers.l2_regularizer(1e-3))
-
-    # output = tf.layers.conv2d_transpose(output, num_classes, 24, strides=(4, 4), padding='same', 
-    #                             # kernel_initializer=tf.truncated_normal_initializer(stddev=0.01),
-    #                             kernel_regularizer=tf.contrib.layers.l2_regularizer(1e-3))
-
-    return output
 tests.test_layers(layers)
 
 
@@ -179,7 +145,6 @@ def train_nn(sess, epochs, batch_size, get_batches_fn, train_op, cross_entropy_l
     """
     # TODO: Implement function
     sess.run(tf.global_variables_initializer())
-
     iteration = 0
     for epoch in range(epochs):
         for image, label in get_batches_fn(batch_size):
