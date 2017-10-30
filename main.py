@@ -53,7 +53,7 @@ def conv_1x1(x, num_outputs):
     kernel_size = 1
     stride = 1
     return tf.layers.conv2d(x, num_outputs, kernel_size, stride,
-                            kernel_initializer=tf.truncated_normal_initializer(stddev=0.01),
+                            kernel_initializer=tf.truncated_normal_initializer(stddev=0.001),
                             kernel_regularizer= tf.contrib.layers.l2_regularizer(1e-3))
 
 def upsample(x, num_outputs, kernel_size,stride):
@@ -76,8 +76,12 @@ def layers(vgg_layer3_out, vgg_layer4_out, vgg_layer7_out, num_classes):
 
     # 1x1 convolution of vgg layer7, layer4 and layer3
     layer7_conv1x1 = conv_1x1(vgg_layer7_out, num_classes)
-    layer4_conv1x1 = conv_1x1(vgg_layer4_out, num_classes)
-    layer3_conv1x1 = conv_1x1(vgg_layer3_out, num_classes)
+
+    layer4_scaled = tf.multiply(vgg_layer4_out, 0.01) #Scaling according to: https://discussions.udacity.com/t/here-is-some-advice-and-clarifications-about-the-semantic-segmentation-project/403100
+    layer4_conv1x1 = conv_1x1(layer4_scaled, num_classes)
+
+    layer3_scaled = tf.multiply(vgg_layer3_out, 0.0001) #Scaling according to: https://discussions.udacity.com/t/here-is-some-advice-and-clarifications-about-the-semantic-segmentation-project/403100
+    layer3_conv1x1 = conv_1x1(layer3_scaled, num_classes)
 
     # upsample by 2 
     upsample_1 = upsample(layer7_conv1x1, num_classes,4,(2,2))
@@ -114,16 +118,18 @@ def optimize(nn_last_layer, correct_label, learning_rate, num_classes):
     correct_labels = tf.reshape(correct_label, (-1,num_classes))
 
     #Define loss function
+    regularization_losses = tf.get_collection(tf.GraphKeys.REGULARIZATION_LOSSES) # This is a list of the individual loss values, so we still need to sum them up.
+    regularization_loss = tf.add_n(regularization_losses, name='regularization_loss') # Scalar
     cross_entropy_loss = tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits(logits= logits, labels= correct_labels))
-
+    total_loss = tf.add(cross_entropy_loss, regularization_loss, name='total_loss') # Using total loss according to #Scaling according to: https://discussions.udacity.com/t/here-is-some-advice-and-clarifications-about-the-semantic-segmentation-project/403100
     #Define optimizer
     optimizer = tf.train.AdamOptimizer(learning_rate= learning_rate)
 
     #Define training operation (otimize = minimize loss)
-    train_op = optimizer.minimize(cross_entropy_loss)
+    train_op = optimizer.minimize(total_loss)
 
-    return logits, train_op, cross_entropy_loss
-tests.test_optimize(optimize)
+    return logits, train_op, total_loss
+#tests.test_optimize(optimize)
 
 
 
@@ -192,8 +198,8 @@ def run():
         #  https://datascience.stackexchange.com/questions/5224/how-to-prepare-augment-images-for-neural-network
 
         # TODO: Build NN using load_vgg, layers, and optimize function
-        epochs = 50
-        batch_size = 3
+        epochs = 5
+        batch_size = 1
         input_image, keep_prob, vgg_layer3_out, vgg_layer4_out, vgg_layer7_out = load_vgg(sess, vgg_path)
         output_layer = layers(vgg_layer3_out, vgg_layer4_out, vgg_layer7_out, num_classes)
 
@@ -205,14 +211,13 @@ def run():
 
 
         # TODO: Train NN using the train_nn function
-        #train_nn(sess, epochs, batch_size, get_batches_fn, train_op, cross_entropy_loss, 
-        #         input_image,correct_label, keep_prob, learning_rate)
+        train_nn(sess, epochs, batch_size, get_batches_fn, train_op, cross_entropy_loss, 
+                 input_image,correct_label, keep_prob, learning_rate)
 
         # TODO: Save inference data using helper.save_inference_samples
         #helper.save_inference_samples(runs_dir, data_dir, sess, image_shape, logits, keep_prob, input_image)
     
         # save the (trained) model 
-        sess.run(tf.global_variables_initializer())
 
         # We use a built-in TF helper to export variables to constants
         output_node_names = 'adam_logit'
