@@ -73,28 +73,38 @@ def layers(vgg_layer3_out, vgg_layer4_out, vgg_layer7_out, num_classes):
     # TODO: Implement function
     # Take pretrained VGG as basic network
     
+    #####################################
+    # Encoder part
+    #####################################
 
     # 1x1 convolution of vgg layer7, layer4 and layer3
+
+    # Output dimension 5x18x2
     layer7_conv1x1 = conv_1x1(vgg_layer7_out, num_classes)
 
+    # Output dimension 10x36x2
     layer4_scaled = tf.multiply(vgg_layer4_out, 0.01) #Scaling according to: https://discussions.udacity.com/t/here-is-some-advice-and-clarifications-about-the-semantic-segmentation-project/403100
     layer4_conv1x1 = conv_1x1(layer4_scaled, num_classes)
 
+    # Output dimension 20x72x2
     layer3_scaled = tf.multiply(vgg_layer3_out, 0.0001) #Scaling according to: https://discussions.udacity.com/t/here-is-some-advice-and-clarifications-about-the-semantic-segmentation-project/403100
     layer3_conv1x1 = conv_1x1(layer3_scaled, num_classes)
 
-    # upsample by 2 
+    #####################################
+    # Decoder part
+    #####################################
+    # upsample by factor 2 --> 10x36x2
     upsample_1 = upsample(layer7_conv1x1, num_classes,4,(2,2))
     # add skip connection to layer4         
     skip_1 = tf.add(upsample_1, layer4_conv1x1)
 
-    # upsample again by 2
+    # upsample again by factor 2 --> 20x72x2
     upsample_2 = upsample(skip_1, num_classes,4,(2,2))
     # add skip connection to layer4         
     skip_2 = tf.add(upsample_2, layer3_conv1x1)
 
 
-    # upsample again by 8
+    # upsample again by factor 8 --> 160x576x2
     nn_last_layer = upsample(skip_2, num_classes,16,(8,8))
 
     return nn_last_layer
@@ -117,15 +127,16 @@ def optimize(nn_last_layer, correct_label, learning_rate, num_classes):
     logits = tf.reshape(nn_last_layer, (-1, num_classes), name="adam_logit")
     correct_labels = tf.reshape(correct_label, (-1,num_classes))
 
-    #Define loss function
+    # Define loss function - note: the regularizer must be considered here!
+    # see e.g. https://stackoverflow.com/questions/37107223/how-to-add-regularizations-in-tensorflow
     regularization_losses = tf.get_collection(tf.GraphKeys.REGULARIZATION_LOSSES) # This is a list of the individual loss values, so we still need to sum them up.
     reg_constant = 0.01  # Choose an appropriate one.
     cross_entropy_loss = tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits(logits= logits, labels= correct_labels))
-    total_loss = tf.add(cross_entropy_loss,  reg_constant * sum(regularization_losses), name='total_loss') # Using total loss according to #Scaling according to: https://discussions.udacity.com/t/here-is-some-advice-and-clarifications-about-the-semantic-segmentation-project/403100
-    #Define optimizer
+    total_loss = tf.add(cross_entropy_loss,  reg_constant * sum(regularization_losses), name='total_loss') # Using total loss according to: https://discussions.udacity.com/t/here-is-some-advice-and-clarifications-about-the-semantic-segmentation-project/403100
+    # Define optimizer
     optimizer = tf.train.AdamOptimizer(learning_rate= learning_rate)
 
-    #Define training operation (otimize = minimize loss)
+    # Define training operation (otimize = minimize loss)
     train_op = optimizer.minimize(total_loss)
 
     return logits, train_op, total_loss
