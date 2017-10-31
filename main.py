@@ -4,7 +4,7 @@ import helper
 import warnings
 from distutils.version import LooseVersion
 import project_tests as tests
-
+from graph_utils import load_graph
 
 # Check TensorFlow Version
 assert LooseVersion(tf.__version__) >= LooseVersion(
@@ -134,7 +134,7 @@ def optimize(nn_last_layer, correct_label, learning_rate, num_classes):
 
 
 
-def train_nn(sess, epochs, batch_size, get_batches_fn, train_op, cross_entropy_loss, input_image,
+def train_nn(sess, epochs, batch_size, get_batches_fn, train_op, cross_entropy_loss, image_input,
              correct_label, keep_prob, learning_rate):
     """
     Train neural network and print out the loss during training.
@@ -144,7 +144,7 @@ def train_nn(sess, epochs, batch_size, get_batches_fn, train_op, cross_entropy_l
     :param get_batches_fn: Function to get batches of training data.  Call using get_batches_fn(batch_size)
     :param train_op: TF Operation to train the neural network
     :param cross_entropy_loss: TF Tensor for the amount of loss
-    :param input_image: TF Placeholder for input images
+    :param image_input: TF Placeholder for input images
     :param correct_label: TF Placeholder for label images
     :param keep_prob: TF Placeholder for dropout keep probability
     :param learning_rate: TF Placeholder for learning rate
@@ -155,11 +155,11 @@ def train_nn(sess, epochs, batch_size, get_batches_fn, train_op, cross_entropy_l
         for image, label in get_batches_fn(batch_size):
             iteration=iteration+1
             _, loss = sess.run([train_op, cross_entropy_loss],
-                            feed_dict={input_image: image,
+                            feed_dict={image_input: image,
                                         correct_label: label,
                                         keep_prob: 0.8,
                                         learning_rate: 1e-4})
-    print("Epoch: {}, batch: {}, loss: {}".format(epoch+1, iteration, loss))
+            print("Epoch: {}, batch: {}, loss: {}".format(epoch+1, iteration, loss))
 
 tests.test_train_nn(train_nn)
 
@@ -185,6 +185,7 @@ def run():
     jit_level = tf.OptimizerOptions.ON_2
     config.graph_options.optimizer_options.global_jit_level = jit_level
     config.gpu_options.allow_growth = True
+    config.gpu_options.per_process_gpu_memory_fraction = 1.0
 
     #with tf.Session(config=config) as sess:
     with tf.Session(config=config, graph=tf.Graph()) as sess:
@@ -198,9 +199,9 @@ def run():
         #  https://datascience.stackexchange.com/questions/5224/how-to-prepare-augment-images-for-neural-network
 
         # TODO: Build NN using load_vgg, layers, and optimize function
-        epochs = 5
-        batch_size = 1
-        input_image, keep_prob, vgg_layer3_out, vgg_layer4_out, vgg_layer7_out = load_vgg(sess, vgg_path)
+        epochs = 20
+        batch_size = 5
+        image_input, keep_prob, vgg_layer3_out, vgg_layer4_out, vgg_layer7_out = load_vgg(sess, vgg_path)
         output_layer = layers(vgg_layer3_out, vgg_layer4_out, vgg_layer7_out, num_classes)
 
         correct_label = tf.placeholder(tf.int32, shape=[None, None, None, num_classes])
@@ -210,15 +211,16 @@ def run():
         sess.run(tf.local_variables_initializer())
 
 
+
         # TODO: Train NN using the train_nn function
         train_nn(sess, epochs, batch_size, get_batches_fn, train_op, cross_entropy_loss, 
-                 input_image,correct_label, keep_prob, learning_rate)
+                 image_input,correct_label, keep_prob, learning_rate)
 
         # TODO: Save inference data using helper.save_inference_samples
-        #helper.save_inference_samples(runs_dir, data_dir, sess, image_shape, logits, keep_prob, input_image)
-    
-        # save the (trained) model 
+        helper.save_inference_samples(runs_dir, data_dir, sess, image_shape, logits, keep_prob, image_input)
 
+   
+        # save the (trained) model 
         # We use a built-in TF helper to export variables to constants
         output_node_names = 'adam_logit'
         output_graph_def = tf.graph_util.convert_variables_to_constants(

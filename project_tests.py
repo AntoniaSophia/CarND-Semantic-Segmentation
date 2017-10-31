@@ -60,20 +60,20 @@ def test_load_vgg(load_vgg, tf_module):
     with TmpMock(tf_module.saved_model.loader, 'load') as mock_load_model:
         vgg_path = ''
         sess = tf.Session()
-        test_input_image = tf.placeholder(tf.float32, name='image_input')
+        test_image_input = tf.placeholder(tf.float32, name='image_input')
         test_keep_prob = tf.placeholder(tf.float32, name='keep_prob')
         test_vgg_layer3_out = tf.placeholder(tf.float32, name='layer3_out')
         test_vgg_layer4_out = tf.placeholder(tf.float32, name='layer4_out')
         test_vgg_layer7_out = tf.placeholder(tf.float32, name='layer7_out')
 
-        input_image, keep_prob, vgg_layer3_out, vgg_layer4_out, vgg_layer7_out = load_vgg(sess, vgg_path)
+        image_input, keep_prob, vgg_layer3_out, vgg_layer4_out, vgg_layer7_out = load_vgg(sess, vgg_path)
 
         assert mock_load_model.called, \
             'tf.saved_model.loader.load() not called'
         assert mock_load_model.call_args == mock.call(sess, ['vgg16'], vgg_path), \
             'tf.saved_model.loader.load() called with wrong arguments.'
 
-        assert input_image == test_input_image, 'input_image is the wrong object'
+        assert image_input == test_image_input, 'image_input is the wrong object'
         assert keep_prob == test_keep_prob, 'keep_prob is the wrong object'
         assert vgg_layer3_out == test_vgg_layer3_out, 'layer3_out is the wrong object'
         assert vgg_layer4_out == test_vgg_layer4_out, 'layer4_out is the wrong object'
@@ -121,7 +121,7 @@ def test_train_nn(train_nn):
 
     train_op = tf.constant(0)
     cross_entropy_loss = tf.constant(10.11)
-    input_image = tf.placeholder(tf.float32, name='input_image')
+    image_input = tf.placeholder(tf.float32, name='image_input')
     correct_label = tf.placeholder(tf.float32, name='correct_label')
     keep_prob = tf.placeholder(tf.float32, name='keep_prob')
     learning_rate = tf.placeholder(tf.float32, name='learning_rate')
@@ -133,7 +133,7 @@ def test_train_nn(train_nn):
             'get_batches_fn': get_batches_fn,
             'train_op': train_op,
             'cross_entropy_loss': cross_entropy_loss,
-            'input_image': input_image,
+            'image_input': image_input,
             'correct_label': correct_label,
             'keep_prob': keep_prob,
             'learning_rate': learning_rate}
