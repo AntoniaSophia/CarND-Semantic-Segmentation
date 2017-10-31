@@ -119,9 +119,9 @@ def optimize(nn_last_layer, correct_label, learning_rate, num_classes):
 
     #Define loss function
     regularization_losses = tf.get_collection(tf.GraphKeys.REGULARIZATION_LOSSES) # This is a list of the individual loss values, so we still need to sum them up.
-    regularization_loss = tf.add_n(regularization_losses, name='regularization_loss') # Scalar
+    reg_constant = 0.01  # Choose an appropriate one.
     cross_entropy_loss = tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits(logits= logits, labels= correct_labels))
-    total_loss = tf.add(cross_entropy_loss, regularization_loss, name='total_loss') # Using total loss according to #Scaling according to: https://discussions.udacity.com/t/here-is-some-advice-and-clarifications-about-the-semantic-segmentation-project/403100
+    total_loss = tf.add(cross_entropy_loss,  reg_constant * sum(regularization_losses), name='total_loss') # Using total loss according to #Scaling according to: https://discussions.udacity.com/t/here-is-some-advice-and-clarifications-about-the-semantic-segmentation-project/403100
     #Define optimizer
     optimizer = tf.train.AdamOptimizer(learning_rate= learning_rate)
 
@@ -129,7 +129,7 @@ def optimize(nn_last_layer, correct_label, learning_rate, num_classes):
     train_op = optimizer.minimize(total_loss)
 
     return logits, train_op, total_loss
-#tests.test_optimize(optimize)
+tests.test_optimize(optimize)
 
 
 
